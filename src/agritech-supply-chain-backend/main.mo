@@ -13,45 +13,43 @@ import Principal "mo:base/Principal";
 
 actor {
     // Type Definitions
-    public type Error = { #NotFound; #AlreadyExists; #NotAuthorized; #InvalidInput };
+    public type Error = {
+        #NotFound;
+        #AlreadyExists;
+        #NotAuthorized;
+        #InvalidInput;
+    };
 
     public type Buyer = {
-        id: Text;
-        name: Text;
-        email: Text;
-        phone: Text;
-        address: Text;
-        profilePic: Text;
-        registrationDate: Text;
+        id : Text;
+        name : Text;
+        nfid : Principal;
+        phone : Text;
+        address : Text;
+        profilePic : Text;
+        registrationDate : Text;
     };
 
     // Storage
     private let buyerStorage = HashMap.HashMap<Text, Buyer>(0, Text.equal, Text.hash);
-
-    // Utility: Input Validation
-    private func isValidEmail(email: Text) : Bool {
-        let emailRegex = #"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b";
-        Text.contains(email, emailRegex);
-    };
-
-    private func isValidPhone(phone: Text) : Bool {
-        let phoneRegex = #"^\+?[0-9]{7,15}$";
-        Text.contains(phone, phoneRegex);
+    
+    // Helper function to validate phone number
+    private func isValidPhone(phone : Text) : Bool {
+        // Implement your phone validation logic here
+        // For example, check if it's a valid format or length
+        return Text.size(phone) >= 10;
     };
 
     // Create Buyer
     public shared func createBuyer(
-        name: Text,
-        email: Text,
-        phone: Text,
-        address: Text,
-        profilePic: Text
+        name : Text,
+        nfid : Principal,
+        phone : Text,
+        address : Text,
+        profilePic : Text,
     ) : async Result.Result<Buyer, Error> {
-        if (Text.size(name) == 0 or Text.size(email) == 0 or Text.size(phone) == 0 or Text.size(address) == 0) {
-            return #err(#InvalidInput);
-        };
-
-        if (not isValidEmail(email)) {
+        // More detailed input validation
+        if (Text.size(name) < 2) {
             return #err(#InvalidInput);
         };
 
@@ -59,88 +57,97 @@ actor {
             return #err(#InvalidInput);
         };
 
+        if (Text.size(address) < 5) {
+            return #err(#InvalidInput);
+        };
+
         let id = generateBuyerId();
         let registrationDate = generateTimestamp();
 
-        let buyer : Buyer = { id; name; email; phone; address; profilePic; registrationDate };
+        let buyer : Buyer = {
+            id;
+            name;
+            nfid;
+            phone;
+            address;
+            profilePic;
+            registrationDate;
+        };
 
         switch (buyerStorage.get(id)) {
             case (?_) { #err(#AlreadyExists) };
             case null {
                 buyerStorage.put(id, buyer);
-                #ok(buyer)
+                #ok(buyer);
             };
-        }
+        };
     };
-
     // Update Buyer
     public shared func updateBuyer(
-        id: Text,
-        name: ?Text,
-        email: ?Text,
-        phone: ?Text,
-        address: ?Text,
-        profilePic: ?Text
+        id : Text,
+        name : ?Text,
+        phone : ?Text,
+        address : ?Text,
+        profilePic : ?Text,
     ) : async Result.Result<Buyer, Error> {
         switch (buyerStorage.get(id)) {
             case (?existing) {
                 let updatedBuyer : Buyer = {
                     id = existing.id;
                     name = Option.get(name, existing.name);
-                    email = Option.get(email, existing.email);
+                    nfid = existing.nfid;
                     phone = Option.get(phone, existing.phone);
                     address = Option.get(address, existing.address);
                     profilePic = Option.get(profilePic, existing.profilePic);
                     registrationDate = existing.registrationDate;
                 };
                 buyerStorage.put(id, updatedBuyer);
-                #ok(updatedBuyer)
+                #ok(updatedBuyer);
             };
             case null { #err(#NotFound) };
-        }
+        };
     };
 
     // Get Buyer
-    public query func getBuyer(id: Text) : async Result.Result<Buyer, Error> {
+    public query func getBuyer(id : Text) : async Result.Result<Buyer, Error> {
         switch (buyerStorage.get(id)) {
             case (?buyer) { #ok(buyer) };
             case null { #err(#NotFound) };
-        }
+        };
     };
 
     // Get All Buyers (with Pagination)
-    public query func getAllBuyers(offset: Nat, limit: Nat) : async [Buyer] {
-        let buyers = Buffer.Buffer<Buyer>(limit);
-        let entries = Array.tabulate<(Text, Buyer)>(buyerStorage.size(), func(i) {
-            Iter.toArray(buyerStorage.entries())[i];
-        });
+   public query func getAllBuyers(offset: Nat, limit: Nat) : async [Buyer] {
+    let buyers = Buffer.Buffer<Buyer>(limit);
+    let entries = Iter.toArray(buyerStorage.entries()); // Convert HashMap entries to an array
 
-        let paginated = Array.slice(entries, offset, limit);
+    let paginated = Array.slice(entries, offset, limit); // Extract the required slice
 
-        for ((_, buyer) in paginated.vals()) {
-            buyers.add(buyer);
-        };
-
-        Buffer.toArray(buyers)
+    for (entry in paginated) { // Iterate over the array directly
+        let (_, buyer) = entry; // Destructure tuple (Text, Buyer)
+        buyers.add(buyer);
     };
 
+    Buffer.toArray(buyers) // Convert Buffer to Array before returning
+};
+
     // Delete Buyer
-    public shared func deleteBuyer(id: Text) : async Result.Result<(), Error> {
+    public shared func deleteBuyer(id : Text) : async Result.Result<(), Error> {
         switch (buyerStorage.get(id)) {
             case (?_) {
                 buyerStorage.delete(id);
-                #ok(())
+                #ok(());
             };
             case null { #err(#NotFound) };
-        }
+        };
     };
 
     // Helper Functions
     private func generateBuyerId() : Text {
-        "BUYER-" # Int.toText(Time.now())
+        "BUYER-" # Int.toText(Time.now());
     };
 
     private func generateTimestamp() : Text {
-        Int.toText(Time.now())
+        Int.toText(Time.now());
     };
-}
+};
